@@ -1,0 +1,23 @@
+
+.flexElement {
+    display: flex;
+    justify-content: space-between;
+    margin-block: 6px;
+}
+
+.flexElement > input {
+    width: 50%;
+}
+
+.error {
+    color: red;
+    font-size: 0.8em;
+    height: 20px;
+    text-align: center;
+}
+
+.inputNottControlled {
+    width: 96%;
+    outline: none;
+    padding-left: 3px;
+}
