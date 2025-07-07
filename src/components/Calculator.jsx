@@ -1,7 +1,10 @@
-import { useEffect, useReducer, useRef, useState } from 'react';
+import { useEffect, useReducer, useRef, useState, useCallback, useMemo } from 'react';
 import Display from './Display';
 import Button from './Button';
 import styles from './Calculator.module.css';
+import useNetworkStatus from '../hooks/useNetworkStatus';
+import useWindowWidth from '../hooks/useWindowWidth';
+import useTimer from '../hooks/useTimer';
 
 const initialState = {
     saisie: null,
@@ -38,40 +41,32 @@ export default function Calculator() {
     const [state, dispatch] = useReducer(calculatorReducer, initialState);
     const [inputControleValue, setInputControleValue] = useState('');
     const [manualInput, setManualInput] = useState('');
-    const [windowWidth, setWindowWidth] = useState(window.innerWidth);
-    const [isOnline, setIsOnline] = useState(navigator.onLine);
+    const isOnline = useNetworkStatus();
+    const windowWidth = useWindowWidth();
+    const seconds = useTimer();
     const [piValue, setPiValue] = useState(null);
 
     const refInputIncontrole = useRef(null);
     const ref = useRef(null);
     const [testIncrement, setTestIncrement] = useState(0);
 
-   
-
-    useEffect(() => {
-        const handleOnline = () => setIsOnline(true);
-        const handleOffline = () => setIsOnline(false);
-
-        window.addEventListener('online', handleOnline);
-        window.addEventListener('offline', handleOffline);
-
-        return () => {
-            window.removeEventListener('online', handleOnline);
-            window.removeEventListener('offline', handleOffline);
-        };
-    }, []);
-
-    useEffect(() => {
-        const handleResize = () => setWindowWidth(window.innerWidth);
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
-
     useEffect(() => {
         ref.current.focus();
     }, []);
 
-   
+    useEffect(() => {
+        // Sélectionne tous les boutons de la calculatrice ayant la classe 'buttons'
+        const allButtons = document.querySelectorAll('.buttons');
+        allButtons.forEach(btn => {
+            btn.style.border = '2px solid red';
+        });
+        // Nettoyage si besoin
+        return () => {
+            allButtons.forEach(btn => {
+                btn.style.border = '';
+            });
+        };
+    }, []);
 
     const fetchAdvancedCalculation = async () => {
         dispatch({ type: 'SET_ERROR', payload: '' });
@@ -110,21 +105,19 @@ export default function Calculator() {
         }
     };
 
-   
-
-    const handleNumberClick = (value) => {
+    const handleNumberClick = useCallback((value) => {
         dispatch({ type: 'ADD_DIGIT', payload: value });
-    };
+    }, [dispatch]);
 
-    const handleOperatorClick = (value) => {
+    const handleOperatorClick = useCallback((value) => {
         dispatch({ type: 'SET_OPERATOR', payload: value });
-    };
+    }, [dispatch]);
 
-    const handleClear = () => {
+    const handleClear = useCallback(() => {
         dispatch({ type: 'CLEAR' });
-    };
+    }, [dispatch]);
 
-    const handleEqualClick = () => {
+    const handleEqualClick = useCallback(() => {
         if (state.saisie && state.secondValue && state.operator) {
             const num1 = parseFloat(state.saisie);
             const num2 = parseFloat(state.secondValue);
@@ -140,7 +133,7 @@ export default function Calculator() {
 
             dispatch({ type: 'SET_RESULT', payload: res });
         }
-    };
+    }, [state.saisie, state.secondValue, state.operator, dispatch]);
 
     const handleKeyDown = (event) => {
         const key = event.key;
@@ -178,8 +171,7 @@ export default function Calculator() {
         }
     };
 
-   
-    const paramsButton = [
+    const paramsButton = useMemo(() => [
         { label: "1", action: handleNumberClick },
         { label: "2", action: handleNumberClick },
         { label: "3", action: handleNumberClick },
@@ -196,13 +188,10 @@ export default function Calculator() {
         { label: "C", action: handleClear },
         { label: "=", action: handleEqualClick },
         { label: "/", action: handleOperatorClick },
-    ];
-
-  
+    ], [handleNumberClick, handleOperatorClick, handleClear, handleEqualClick]);
 
     return (
         <>
-          
             <div style={{
                 backgroundColor: isOnline ? '#d4edda' : '#f8d7da',
                 color: isOnline ? '#155724' : '#721c24',
@@ -215,6 +204,13 @@ export default function Calculator() {
                 {isOnline ? 'Vous êtes en ligne ✅' : 'Vous êtes hors ligne ❌'}
             </div>
 
+            <div style={{ fontSize: '12px', color: 'gray', textAlign: 'center' }}>
+                Largeur de l'écran : {windowWidth}px
+            </div>
+            <div style={{ fontSize: '12px', color: 'gray', textAlign: 'center' }}>
+                Temps écoulé : {seconds}s
+            </div>
+
             <input
                 type="text"
                 value={manualInput}
@@ -223,7 +219,6 @@ export default function Calculator() {
                 style={{ width: '100%', padding: '6px', marginBottom: '10px' }}
             />
 
-     
             <div
                 ref={ref}
                 className="calculator"
@@ -232,10 +227,6 @@ export default function Calculator() {
                 style={{ outline: 'none' }}
             >
                 <div className={styles.error}>{state.errorMessage}</div>
-
-                <div style={{ fontSize: '12px', color: 'gray', textAlign: 'center' }}>
-                    Largeur de l’écran : {windowWidth}px
-                </div>
 
                 <div className={styles.flexElement}>
                     <div>{testIncrement}</div>
@@ -260,14 +251,12 @@ export default function Calculator() {
                     placeholder="Input rapide (pas suivi par React)"
                 />
 
-                {/* Boutons numériques */}
                 <div>
                     {paramsButton.map((param, index) => (
                         <Button key={index} label={param.label} onClick={param.action} />
                     ))}
                 </div>
 
-              
                 <div style={{ marginTop: '10px', textAlign: 'center', marginBottom: '5px' }}>
                     <button onClick={fetchPi}>📡 Charger π depuis API</button>
                     {piValue && (
@@ -278,7 +267,6 @@ export default function Calculator() {
                     <button onClick={fetchAdvancedCalculation}>Calculer via Math.js API 🧠</button>
                 </div>
 
-                
                 <div className={styles.flexElement}>
                     <button onClick={handleControlledSubmit}>Control</button>
                     <button onClick={handleNotControlledSubmit}>Not-Control</button>
